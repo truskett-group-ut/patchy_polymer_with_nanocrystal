@@ -4,6 +4,7 @@ from pyPRISM.omega.Omega import Omega
 import numpy as np
 from math import exp,sin,cos,sqrt
 from scipy.optimize import root
+from itertools import combinations
 
 class DiscreteKoyamaPartitioned(Omega):
     r'''Semi-flexible Koyama-based intra-molecular correlation function
@@ -87,7 +88,7 @@ class DiscreteKoyamaPartitioned(Omega):
         sys.omega['A','A']  = pyPRISM.omega.DiscreteKoyama(sigma=1.0,l=1.0,length=100,lp=1.43)
     
     '''
-    def __init__(self,sigma,l,length,lp,portion):
+    def __init__(self,sigma,l,length,lp,types):
         r'''Constructor
 
         Arguments
@@ -114,18 +115,12 @@ class DiscreteKoyamaPartitioned(Omega):
         ####################################################################
         #custom part to separate out the endpoints from the middle segments#
         ####################################################################
-        
-        self.portion = portion
-        
-        if self.portion == 'end':
-            self.site_pairs = np.array([[1, self.l]])
-        elif self.portion == 'middle':
-            self.site_pairs = []
-            for i in range(2, self.l-1):
-                for j in range(i+1, self.l):
-                    self.site_pairs.append([i, j])
-        else:
-            raise ValueError('The portion must be either "end" or middle.')
+
+        #get the types and the number of sites and store in array
+        self.types = np.array(types)
+        self.sites = {'end': np.array([1, self.length]), 'middle': np.arange(2, self.length)}
+        self.ns = 2*(self.types == 'end') + (self.length-2)*(self.types == 'middle')
+        assert 0 not in self.ns
             
         ####################################################################
         ####################################################################
@@ -308,23 +303,32 @@ class DiscreteKoyamaPartitioned(Omega):
         #################################################################
         #custom modification to loop over only the sites being cosidered#
         #################################################################
-        
-        for i, j in site_pairs:
-            n = abs(i - j)
-            self.value += self.koyama_kernel_fourier(k=k,n=n)
-        self.value *= 2/self.length
-        self.value += 1.0
-        
-        #################################################################
-        #################################################################
-        #################################################################
-    
+               
+        #intra-group computation                  
+        if self.types[0] == self.types[1]:
+            for i, j in combinations(self.sites[self.types[0]], 2):
+                n = abs(i - j)
+                self.value += self.koyama_kernel_fourier(k=k,n=n)
+            self.value *= 2.0/(self.ns[0])
+            self.value += 1.0
+        #inter-group computation
+        else:
+            for i in self.sites[self.types[0]]:
+                for j in self.sites[self.types[1]]:
+                    n = abs(i - j)
+                    self.value += self.koyama_kernel_fourier(k=k,n=n)
+            self.value *= 1.0/(self.ns[0] + self.ns[1])
+            
         #for i in range(1,self.length-1):
         #    for j in range(i+1,self.length):
         #        n = abs(i - j)
         #        self.value += self.koyama_kernel_fourier(k=k,n=n)
         #self.value *= 2/self.length
         #self.value += 1.0
+        
+        #################################################################
+        #################################################################
+        #################################################################
         
         return self.value
 
