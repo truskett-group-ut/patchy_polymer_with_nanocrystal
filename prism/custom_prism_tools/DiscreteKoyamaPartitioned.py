@@ -120,23 +120,26 @@ class DiscreteKoyamaPartitioned(Omega):
         self.types = np.array(types)
         self.sites = {'end': np.array([1, self.length]), 'middle': np.arange(2, self.length)}
         self.ns = 2*(self.types == 'end') + (self.length-2)*(self.types == 'middle')
+        self.lp_min = (4.0*self.l**3)/(4.0*self.l**2-self.sigma**2)
         assert 0 not in self.ns
             
         ####################################################################
         ####################################################################
         ####################################################################
 
-        if self.lp<4.0/3.0:
-            raise ValueError('DiscreteKoyama does not support persistence lengths < 4.0/3.0.')
-        elif self.lp == 4.0/3.0:
+        if self.lp<self.lp_min:
+            raise ValueError('DiscreteKoyama does not support persistence lengths < 4*l**3/(4*l**2-sigma**2)')
+        elif (self.lp - self.lp_min)/self.lp_min < 0.001:
             self.epsilon = 0.0
-            self.cos1 = 0.5*(self.cos0-1.0)/(self.cos0 + 1.0)
-            self.cos2 = (self.cos0**(3.0) + 1)/(3*self.cos0 + 3)
+            #self.cos1 = 0.5*(self.cos0-1.0)/(self.cos0 + 1.0)    #THIS IS WRONG
+            #self.cos2 = (self.cos0**(3.0) + 1)/(3*self.cos0 + 3) #THIS IS WRONG
+            self.cos1 = 0.5*(self.cos0-1.0)
+            self.cos2 = (1.0/3.0)*(1.0+(self.cos0-1.0)*self.cos0)
         else:
 
-            self.cos1 = l/lp - 1
+            self.cos1 = l/lp - 1.0
             funk = lambda e: self.cos_avg(e) - self.cos1
-            result  = root(funk,1.0)
+            result  = root(funk,0.1,jac=False, method='hybr')
 
             if result.success != True:
                 raise ValueError('DiscreteKoyama initialization failure. Could not solve for bending energy.')
