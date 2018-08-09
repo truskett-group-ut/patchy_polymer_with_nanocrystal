@@ -4,9 +4,8 @@ from pyPRISM.omega.Omega import Omega
 import numpy as np
 from math import exp,sin,cos,sqrt
 from scipy.optimize import root
-from itertools import combinations
 
-class DiscreteKoyamaPartitioned(Omega):
+class DiscreteKoyama(Omega):
     r'''Semi-flexible Koyama-based intra-molecular correlation function
 
     **Mathematial Definition**
@@ -88,7 +87,7 @@ class DiscreteKoyamaPartitioned(Omega):
         sys.omega['A','A']  = pyPRISM.omega.DiscreteKoyama(sigma=1.0,l=1.0,length=100,lp=1.43)
     
     '''
-    def __init__(self,sigma,l,length,lp,types):
+    def __init__(self,sigma,l,length,lp):
         r'''Constructor
 
         Arguments
@@ -111,46 +110,18 @@ class DiscreteKoyamaPartitioned(Omega):
         self.lp      = lp
         self.cos0    = 1 - sigma*sigma/(2.0 * l * l)
         self.value   = None
-        
-        ####################################################################
-        #custom data to separate out the endpoints from the middle segments#
-        ####################################################################
-
-        #get the types and the number of sites and store in array
-        self.types = np.array(types)
-        self.sites = {'end': np.array([1, self.length]), 'middle': np.arange(2, self.length)}
-        self.ns = 2*(self.types == 'end') + (self.length-2)*(self.types == 'middle')
-        assert 0 not in self.ns
-            
-        ####################################################################
-        ####################################################################
-        ####################################################################                
-        
-        if self.l > self.sigma/2.0:
-            self.lp_min = (4.0*self.l**3)/(4.0*self.l**2-self.sigma**2)
-        else:
-            raise ValueError("Values of l <= sigma/2 are not allowed as this generates overlaps " \
-                              "between sites separated by two bonds.")
+        self.lp_min = (4.0*self.l**3)/(4.0*self.l**2-self.sigma**2)
 
         if self.lp<self.lp_min:
-            raise ValueError("For l={} and sigma={} the minimum valid lp={}, otherwise overlaps " \
-                             "between sites separated by two bonds will occur.".format(self.l, self.sigma, self.lp_min))
-        #If lp is close to the minimum (freely jointed limit) the solver has 
-        #issues finding the bending energy due to the divergence in Eqn. 23 of 
-        #the above mentioned reference. 
-        #This uses a linearization approximation if the minimum is approached.
-        #A tolerance of 0.001 seems good.
-        elif (self.lp - self.lp_min)/self.lp_min < 0.001:
+            raise ValueError('For l={} and sigma={} the minimum valid lp={}'.format(self.l, self.sigma, self.lp_min))
+        elif (self.lp - self.lp_min)/self.lp_min < 0.00001:
             self.cos1 = l/lp - 1.0
             self.epsilon = 6.0*(self.cos0-1.0-2.0*self.cos1)/(1.0+self.cos0)**2
-            self.cos2 = ( (1.0/3.0)*(1.0+(self.cos0-1.0)*self.cos0) - 
-                          (1.0/12.0)*((self.cos0-1.0)*(1.0+self.cos0)**2)*self.epsilon )
-        #Actually solve the non-linear equation for the bending energy when far enough
-        #away from the freely jointed limit.
+            self.cos2 = (1.0/3.0)*(1.0+(self.cos0-1.0)*self.cos0)
         else:
             self.cos1 = l/lp - 1
             funk = lambda e: self.cos_avg(e) - self.cos1
-            result  = root(funk, 0.5)
+            result  = root(funk, 0.1, method='broyden1')
 
             if result.success != True:
                 raise ValueError('DiscreteKoyama initialization failure. Could not solve for bending energy.')
@@ -314,35 +285,12 @@ class DiscreteKoyamaPartitioned(Omega):
         '''
         self.value = np.zeros_like(k)
         
-        #################################################################
-        #custom modification to loop over only the sites being cosidered#
-        #################################################################
-               
-        #intra-group computation                  
-        if self.types[0] == self.types[1]:
-            for i, j in combinations(self.sites[self.types[0]], 2):
+        for i in range(1,self.length-1):
+            for j in range(i+1,self.length):
                 n = abs(i - j)
                 self.value += self.koyama_kernel_fourier(k=k,n=n)
-            self.value *= 2.0/(self.ns[0])
-            self.value += 1.0
-        #inter-group computation
-        else:
-            for i in self.sites[self.types[0]]:
-                for j in self.sites[self.types[1]]:
-                    n = abs(i - j)
-                    self.value += self.koyama_kernel_fourier(k=k,n=n)
-            self.value *= 1.0/(self.ns[0] + self.ns[1])
-            
-        #for i in range(1,self.length-1):
-        #    for j in range(i+1,self.length):
-        #        n = abs(i - j)
-        #        self.value += self.koyama_kernel_fourier(k=k,n=n)
-        #self.value *= 2/self.length
-        #self.value += 1.0
-        
-        #################################################################
-        #################################################################
-        #################################################################
+        self.value *= 2/self.length
+        self.value += 1.0
         
         return self.value
 
