@@ -5,61 +5,7 @@ from copy import deepcopy
 import inspect
 import warnings
 
-def ThermodynamicsClosedForm(PRISM, default_method='HNC'): 
-    
-    r'''Calculate the Real-space *inter*-molecular pair correlation function 
-    Parameters
-    ----------
-    PRISM: pyPRISM.core.PRISM
-        A **solved** PRISM object.
-    
-    Returns
-    -------
-    pairCorr: pyPRISM.core.MatrixArray
-        The full MatrixArray of pair correlation functions.
-    
-    **Mathematical Definition**
-    .. math::
-         
-        g_{\alpha,\beta}(r) = h_{\alpha,\beta}(r) + 1.0
-    
-    **Variable Definitions**
-        - :math:`g_{\alpha,\beta}(r)`
-            Pair correlation function between site types :math:`\alpha` and
-            :math:`\beta` at a distance :math:`r`
-        - :math:`h_{\alpha,\beta}(r)`
-            Total correlation function between site types :math:`\alpha` and
-            :math:`\beta` at a distance :math:`r`
-    **Description**
-        The pair correlation function describes the spatial correlations
-        between pairs of sites in Real-space. Also known as the *radial
-        distribution function* (rdf), the :math:`g(r)` function is
-        related to the underlying spatial probability distributions of a given
-        system. In a PRISM calculation, :math:`g(r)` is strictly an
-        *inter*-molecular quantity.
-        After convergence of a PRISM object, the stored total correlation
-        attribute function can simply be shifted to obtain the :math:`g(r)` 
-    .. warning::
-        Passing an unsolved PRISM object to this function will still produce
-        output based on the default values of the attributes of the PRISM
-        object.
-    
-    Example
-    -------
-    .. code-block:: python
-        import pyPRISM
-        sys = pyPRISM.System(['A','B'])
-        
-        # ** populate system variables **
-        
-        PRISM = sys.createPRISM()
-        PRISM.solve()
-        rdf = pyPRISM.calculate.pair_correlation(PRISM)
-        rdf_AA = rdf['A','A']
-        rdf_AB = rdf['A','B']
-        rdf_BB = rdf['B','B']
-    
-    '''
+def ThermodynamicsClosedForm(PRISM, default_method='KH'): 
     
     #Check on the closures and raise a warning of incompatible.
     #These formulas can be used anyways but they are not theoretically 
@@ -73,9 +19,9 @@ def ThermodynamicsClosedForm(PRISM, default_method='HNC'):
     elif not (closures - set(['pyPRISM.closure.HyperNettedChain'])):
         method = 'HNC'
     else:
-        warnings.warn('This calculation is only theoretically valid if either \\
-                      the KovalenkoHirata (KH) or HyperNettedChain (HNC) \\
-                      closures are used for all pairs. Defaulting to {} \\
+        warnings.warn('This calculation is only theoretically valid if either \
+                      the KovalenkoHirata (KH) or HyperNettedChain (HNC) \
+                      closures are used for all pairs. Defaulting to {} \
                       functional form for use with mixed closures.'.format(default_method), UserWarning)
         method = default_method
     
@@ -128,9 +74,9 @@ def ThermodynamicsClosedForm(PRISM, default_method='HNC'):
     P_ex_k = -prefactor_k*np.trapz(k*k*(tr_K2invK1 + lndet_K2), k)
     
     #calculate the r-space contribution
-    if method == 'HNC':
+    if method == 'KH':
         Structure = ((1.0/2.0)*(Hr*Hr).data*np.heaviside(-Hr.data, 0) - Cr.data)
-    elif method == 'KH':
+    elif method == 'HNC':
         Structure = ((1.0/2.0)*(Hr*Hr).data - Cr.data)
     kernel_r = np.sum(np.matmul(np.matmul(Rho, Structure), Rho), axis=(1,2))
     F_and_P_ex_r = (4.0*np.pi/2.0)*np.trapz(r*r*kernel_r, r)
