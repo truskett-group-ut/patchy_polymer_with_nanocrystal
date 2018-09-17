@@ -10,20 +10,22 @@ class NNRegressor:
         self.functional_helper = FunctionalFitHelper()
         self.functional_helper.num_cnts=num_rbfs
         
-        with open("./TrainedNNs/r_scaler.dill") as r_scaler_file:
+        file_base = '../regression/code'
+        
+        with open("{}/TrainedNNs/r_scaler.dill".format(file_base)) as r_scaler_file:
             self.r_scaler = dill.load(r_scaler_file)
-        with open("./TrainedNNs/params_scaler.dill") as params_scaler_file:
+        with open("{}/TrainedNNs/params_scaler.dill".format(file_base)) as params_scaler_file:
             self.params_scaler = dill.load(params_scaler_file)
             
         self.model_dict={}
 
         for mod in ['fe', 'cnts', 'amps', 'efas', 'rbfs']:
-            modelfile='./TrainedNNs/model_'+ mod + '.json'
+            modelfile='{}/TrainedNNs/model_'.format(file_base) + mod + '.json'
             json_file = open(modelfile, 'r')
             model_json = json_file.read()
             json_file.close()
             self.model_dict[mod] = model_from_json(model_json)
-            weightsfile='./TrainedNNs/model_'+ mod + '.h5'
+            weightsfile='{}/TrainedNNs/model_'.format(file_base) + mod + '.h5'
             self.model_dict[mod].load_weights(weightsfile)
             
         self.functional_helper.InitializeOldModel(self.model_dict['cnts'], self.model_dict['amps'], 

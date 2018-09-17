@@ -11,8 +11,7 @@ class BondVolume:
         
         #check that the model index is valid
         #only one model for now, but leaving room for more
-        file_base = '{}/bond_volume/model_{}'.format(os.path.dirname(os.path.realpath('bond_volume.py')), model_index)
-        print file_base
+        file_base = '../regression/code/bond_volume/model_{}'.format(model_index)
         assert os.path.exists(file_base)
         
         #the range of r allowed for prediction
